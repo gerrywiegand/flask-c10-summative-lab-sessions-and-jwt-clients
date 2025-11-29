@@ -1,13 +1,9 @@
-from datetime import datetime
+from datetime import UTC, datetime, timezone
 
-from flask_bcrypt import Bcrypt
-from flask_sqlalchemy import SQLAlchemy
+from app import bcrypt, db
 from marshmallow import Schema, fields
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import validates
-
-db = SQLAlchemy()
-bcrypt = Bcrypt()
 
 
 class User(db.Model):
@@ -21,6 +17,22 @@ class User(db.Model):
 
     @password_hash.setter
     def password_hash(self, password):
+        # Validate password format before hashing
+        required_special_chars = "!@#$%^&*()-_=+[]{}|;:,.<>?/"
+        required_alpha = any(c.isalpha() for c in password)
+        required_digit = any(c.isdigit() for c in password)
+        required_special = any(c in required_special_chars for c in password)
+
+        if not password or len(password) < 6:
+            raise ValueError("Password must be at least 6 characters long.")
+        if len(password) > 128:
+            raise ValueError("Password cannot exceed 128 characters.")
+        if not (required_alpha and required_digit and required_special):
+            raise ValueError(
+                "Password must contain a letter, number, and special character."
+            )
+
+        # Hash and store the password
         self._password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
 
     def authenticate(self, password):
@@ -29,23 +41,8 @@ class User(db.Model):
     @validates("username")
     def validate_username(self, key, username):
         if not username or len(username) < 3 or len(username) > 15:
-            raise ValueError("Username must be at least 3 characters long.")
+            raise ValueError("Username must be between 3 and 15 characters long.")
         return username
-
-    @validates("_password_hash")
-    def validate_password(self, key, password):
-        required_special_chars = "!@#$%^&*()-_=+[]{}|;:,.<>?/"
-        required_alpha = any(c.isalpha() for c in password)
-        required_digit = any(c.isdigit() for c in password)
-        required_special = any(c in required_special_chars for c in password)
-        if (
-            not password
-            or len(password) < 6
-            or len(password) > 128
-            or not (required_alpha and required_digit and required_special)
-        ):
-            raise ValueError("Password must be at least 6 characters long.")
-        return password
 
     def __repr__(self):
         return f"<User {self.username}>"
@@ -73,7 +70,9 @@ class Notes(db.Model):
     category = db.Column(db.String(50), nullable=True)
     content = db.Column(db.String(500), nullable=False)
     date_created = db.Column(
-        nullable=True,
+        db.DateTime,
+        default=lambda: datetime.now(UTC),
+        nullable=False,
     )
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
 
@@ -101,12 +100,6 @@ class Notes(db.Model):
         if category and (len(category) < 1 or len(category) > 50):
             raise ValueError("Category must be between 1 and 50 characters long.")
         return category
-
-    @validates("date_created")
-    def validate_date_created(self, key, date_created):
-        if date_created and not isinstance(date_created, datetime):
-            raise ValueError("date_created must be a valid datetime object.")
-        return date_created
 
     @validates("user_id")
     def validate_user_id(self, key, user_id):

@@ -1,6 +1,10 @@
 from config import Config
 from flask import Flask
-from models import bcrypt, db
+from flask_bcrypt import Bcrypt
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+bcrypt = Bcrypt()
 
 app = Flask(__name__)
 app.config.from_object(Config)
