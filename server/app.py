@@ -75,11 +75,11 @@ class Login(Resource):
 
 class GetUser(Resource):
     def get(self):
-       get_jwt_identity()
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
         if not user:
             return {"message": "User not found."}, 404
+        return user_schema.dump(user), 200
 
 
 api.add_resource(Signup, "/signup", endpoint="signup")
