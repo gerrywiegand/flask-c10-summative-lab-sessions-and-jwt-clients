@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from flask import Flask
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
 from marshmallow import Schema, fields
@@ -8,7 +7,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import validates
 
 db = SQLAlchemy()
-dt = datetime()
+bcrypt = Bcrypt()
 
 
 class User(db.Model):
@@ -18,15 +17,13 @@ class User(db.Model):
 
     @hybrid_property
     def password_hash(self):
-        return AttributeError("Password hashes may not be viewed.")
+        raise AttributeError("Password hashes may not be viewed.")
 
     @password_hash.setter
     def password_hash(self, password):
-        bcrypt = Bcrypt()
         self._password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
 
     def authenticate(self, password):
-        bcrypt = Bcrypt()
         return bcrypt.check_password_hash(self._password_hash, password)
 
     @validates("username")
@@ -35,7 +32,7 @@ class User(db.Model):
             raise ValueError("Username must be at least 3 characters long.")
         return username
 
-    @validates("password_hash")
+    @validates("_password_hash")
     def validate_password(self, key, password):
         required_special_chars = "!@#$%^&*()-_=+[]{}|;:,.<>?/"
         required_alpha = any(c.isalpha() for c in password)
@@ -69,16 +66,18 @@ user_schema = UserSchema()
 
 class Notes(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False, unique=True)
+    name = db.Column(
+        db.String(50),
+        nullable=False,
+    )
     category = db.Column(db.String(50), nullable=True)
     content = db.Column(db.String(500), nullable=False)
     date_created = db.Column(
-        db.dt,
         nullable=True,
     )
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
 
-    user = db.relationship("User", backref=db.backref("notes", lazy=True))
+    user = db.relationship("User", back_populates="notes")
 
     def __repr__(self):
         return (
@@ -122,4 +121,4 @@ class NotesSchema(Schema):
     category = fields.Str()
     content = fields.Str()
     date_created = fields.DateTime()
-    user_id = fields.Int()
+    user_id = fields.Int(dump_only=True)
