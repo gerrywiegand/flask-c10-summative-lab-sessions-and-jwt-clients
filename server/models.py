@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timezone
 
-from app import bcrypt, db
+from config import bcrypt, db
 from marshmallow import Schema, fields
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import validates

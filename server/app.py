@@ -1,6 +1,5 @@
-from config import Config
-from flask import Flask, jsonify, make_response, request, 
-from flask_bcrypt import Bcrypt
+from config import *
+from flask import Flask, jsonify, make_response, request
 from flask_jwt_extended import (
     JWTManager,
     create_access_token,
@@ -8,11 +7,7 @@ from flask_jwt_extended import (
     verify_jwt_in_request,
 )
 from flask_restful import Api, Resource
-from flask_sqlalchemy import SQLAlchemy
-from models import User, user_schema
-
-db = SQLAlchemy()
-bcrypt = Bcrypt()
+from models import User, UserSchema
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -21,13 +16,18 @@ bcrypt.init_app(app)
 api = Api(app)
 jwt = JWTManager(app)
 
-open_routes = ["signup", "login"]
+open_routes = ["signup", "login", "home"]
 
 
 @app.before_request
 def check_if_logged_in():
     if request.endpoint not in open_routes:
         verify_jwt_in_request()
+
+
+class Home(Resource):
+    def get(self):
+        return {"message": "Welcome to the Notes API!"}, 200
 
 
 class Signup(Resource):
@@ -51,7 +51,7 @@ class Signup(Resource):
         except ValueError as ve:
             return {"message": str(ve)}, 400
 
-        return {"Message:User created successfully", user_schema.dump(new_user)}, 201
+        return {"Message:User created successfully", UserSchema.dump(new_user)}, 201
 
 
 class Login(Resource):
@@ -67,7 +67,7 @@ class Login(Resource):
         if user and user.authenticate(password):
             access_token = create_access_token(identity=user.id)
             return make_response(
-                jsonify(token=access_token, user=user_schema.dump(user)), 200
+                jsonify(token=access_token, user=UserSchema.dump(user)), 200
             )
         else:
             return {"message": "Invalid username or password."}, 401
@@ -79,9 +79,10 @@ class GetUser(Resource):
         user = User.query.get(user_id)
         if not user:
             return {"message": "User not found."}, 404
-        return user_schema.dump(user), 200
+        return UserSchema.dump(user), 200
 
 
+api.add_resource(Home, "/", endpoint="home")
 api.add_resource(Signup, "/signup", endpoint="signup")
 api.add_resource(Login, "/login", endpoint="login")
 api.add_resource(GetUser, "/me", endpoint="me")

@@ -1,3 +1,10 @@
+from flask_bcrypt import Bcrypt
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+bcrypt = Bcrypt()
+
+
 class Config:
     SQLALCHEMY_DATABASE_URI = "sqlite:///app.db"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
