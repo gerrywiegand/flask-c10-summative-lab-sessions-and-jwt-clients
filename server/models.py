@@ -58,7 +58,7 @@ class UserSchema(Schema):
     password_hash = fields.Str(load_only=True)
 
 
-user_schema = UserSchema()
+us = UserSchema()
 
 
 class Notes(db.Model):

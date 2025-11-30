@@ -7,7 +7,7 @@ from flask_jwt_extended import (
     verify_jwt_in_request,
 )
 from flask_restful import Api, Resource
-from models import User, UserSchema
+from models import User, us
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -16,11 +16,13 @@ bcrypt.init_app(app)
 api = Api(app)
 jwt = JWTManager(app)
 
-open_routes = ["signup", "login", "home"]
+open_routes = ["signup", "login", "home", "static"]
 
 
 @app.before_request
 def check_if_logged_in():
+    if request.endpoint in ("static", None):
+        return
     if request.endpoint not in open_routes:
         verify_jwt_in_request()
 
@@ -51,7 +53,10 @@ class Signup(Resource):
         except ValueError as ve:
             return {"message": str(ve)}, 400
 
-        return {"Message:User created successfully", UserSchema.dump(new_user)}, 201
+        return {
+            "Message": "User created successfully",
+            "User": us.dump(new_user),
+        }, 201
 
 
 class Login(Resource):
@@ -65,21 +70,19 @@ class Login(Resource):
 
         user = User.query.filter_by(username=username).first()
         if user and user.authenticate(password):
-            access_token = create_access_token(identity=user.id)
-            return make_response(
-                jsonify(token=access_token, user=UserSchema.dump(user)), 200
-            )
+            access_token = create_access_token(identity=str(user.id))
+            return make_response(jsonify(token=access_token, user=us.dump(user)), 200)
         else:
             return {"message": "Invalid username or password."}, 401
 
 
 class GetUser(Resource):
     def get(self):
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         user = User.query.get(user_id)
         if not user:
             return {"message": "User not found."}, 404
-        return UserSchema.dump(user), 200
+        return us.dump(user), 200
 
 
 api.add_resource(Home, "/", endpoint="home")
