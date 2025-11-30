@@ -10,15 +10,18 @@ fake = Faker()
 
 def create_users():
     users = []
-    test_user = User(username="test", id=1)
+    test_user = User(
+        username="test",
+    )
     test_user.password_hash = "Test1!"
     db.session.add(test_user)
     users.append(test_user)
     for _ in range(5):
         username = fake.user_name()
         username = username[:15]
-        if len(username) < 3:
-            break
+        while True:
+            if len(username) < 3:
+                break
         password = fake.password(
             length=8, special_chars=True, digits=True, upper_case=True
         ) + choice("!@#$%^&*()-_=+[]{}|;:,.<>?/")
