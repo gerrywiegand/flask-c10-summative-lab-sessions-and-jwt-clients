@@ -47,9 +47,7 @@ class User(db.Model):
     def __repr__(self):
         return f"<User {self.username}>"
 
-    notes = db.relationship(
-        "Notes", back_populates="user", cascade="all, delete-orphan"
-    )
+    notes = db.relationship("Note", back_populates="user", cascade="all, delete-orphan")
 
 
 class UserSchema(Schema):
@@ -61,7 +59,7 @@ class UserSchema(Schema):
 us = UserSchema()
 
 
-class Notes(db.Model):
+class Note(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(
         db.String(50),
@@ -115,3 +113,7 @@ class NotesSchema(Schema):
     content = fields.Str()
     date_created = fields.DateTime()
     user_id = fields.Int(dump_only=True)
+
+
+note_schema = NotesSchema()
+notes_schema = NotesSchema(many=True)

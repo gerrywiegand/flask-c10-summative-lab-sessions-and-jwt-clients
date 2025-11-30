@@ -1,4 +1,4 @@
-from config import *
+from config import Config, bcrypt, db
 from flask import Flask, g, jsonify, make_response, request
 from flask_jwt_extended import (
     JWTManager,
@@ -7,7 +7,7 @@ from flask_jwt_extended import (
     verify_jwt_in_request,
 )
 from flask_restful import Api, Resource
-from models import Note, NoteSchema, User, us
+from models import Note, User, note_schema, notes_schema, us
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -16,24 +16,27 @@ bcrypt.init_app(app)
 api = Api(app)
 jwt = JWTManager(app)
 
-open_routes = ["signup", "login", "home", "static"]
+open_routes = {"signup", "login", "home"}
 
 
 @app.before_request
 def check_if_logged_in():
-    if request.endpoint in ("static", None, open_routes):
+    # Skip auth for static files or open routes
+    if request.endpoint is None:
         return
+    if request.endpoint == "static" or request.endpoint in open_routes:
+        return
+
     try:
         verify_jwt_in_request()
-        user_id = int(get_jwt_identity())
-        g.current_user_id = user_id
+        g.current_user_id = int(get_jwt_identity())
     except Exception as e:
         return {"message": str(e)}, 401
 
 
 class Home(Resource):
     def get(self):
-        return {"message": "Welcome to the Notes API!"}, 200
+        return {"message": "Welcome to the Note API!"}, 200
 
 
 class Signup(Resource):
@@ -82,25 +85,22 @@ class Login(Resource):
 
 class GetUser(Resource):
     def get(self):
-        user_id = int(get_jwt_identity())
-        user = User.query.get(user_id)
+        user = User.query.get(g.current_user_id)
         if not user:
             return {"message": "User not found."}, 404
         return us.dump(user), 200
 
 
 class Notes(Resource):
-    def get_all(self):
-        notes = Note.query.filter_by(user_id=g.current_user_id).all()
-        return NoteSchema.dump(notes, many=True), 200
+    def get(self, note_id=None):
+        if note_id is None:
+            notes = Note.query.filter_by(user_id=g.current_user_id).all()
+            return notes_schema.dump(notes), 200
 
-    def get_by_id(self, note_id):
         note = Note.query.filter_by(id=note_id, user_id=g.current_user_id).first()
-
         if not note:
             return {"message": "Note not found."}, 404
-
-        return NoteSchema.dump(note), 200
+        return note_schema.dump(note), 200
 
     def post(self):
         data = request.get_json()
@@ -113,7 +113,7 @@ class Notes(Resource):
             )
             db.session.add(new_note)
             db.session.commit()
-            return NoteSchema.dump(new_note), 201
+            return note_schema.dump(new_note), 201
         except ValueError as ve:
             return {"message": str(ve)}, 400
 
@@ -132,7 +132,7 @@ class Notes(Resource):
                 note.content = data["content"]
 
             db.session.commit()
-            return NoteSchema.dump(note), 200
+            return note_schema.dump(note), 200
         except ValueError as ve:
             return {"message": str(ve)}, 400
 
@@ -149,19 +149,7 @@ api.add_resource(Home, "/", endpoint="home")
 api.add_resource(Signup, "/signup", endpoint="signup")
 api.add_resource(Login, "/login", endpoint="login")
 api.add_resource(GetUser, "/me", endpoint="me")
-api.add_resource(
-    Notes,
-    "/notes",
-    "/notes/<int:note_id>",
-    endpoint="notes",
-    resource_class_kwargs={
-        "get_all": Notes.get_all,
-        "get_by_id": Notes.get_by_id,
-        "post": Notes.post,
-        "patch": Notes.patch,
-        "delete": Notes.delete,
-    },
-)
+api.add_resource(Notes, "/notes", "/notes/<int:note_id>", endpoint="notes")
 
 if __name__ == "__main__":
     with app.app_context():
