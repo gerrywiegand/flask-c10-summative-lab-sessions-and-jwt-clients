@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+
+# Virtual envs
+venv/
+env/
+.venv/
+pipenv/
+Pipfile.lock
+*.egg-info/
+
+# SQLite
+instance/
+*.db
+app.db
+
+# Flask/Migrate
+migrations/versions/*.pyc
+
+# OS crap
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
