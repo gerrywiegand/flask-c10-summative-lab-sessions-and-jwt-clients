@@ -1,5 +1,5 @@
 from config import *
-from flask import Flask, jsonify, make_response, request
+from flask import Flask, g, jsonify, make_response, request
 from flask_jwt_extended import (
     JWTManager,
     create_access_token,
@@ -7,7 +7,7 @@ from flask_jwt_extended import (
     verify_jwt_in_request,
 )
 from flask_restful import Api, Resource
-from models import User, us
+from models import Note, NoteSchema, User, us
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -21,10 +21,14 @@ open_routes = ["signup", "login", "home", "static"]
 
 @app.before_request
 def check_if_logged_in():
-    if request.endpoint in ("static", None):
+    if request.endpoint in ("static", None, open_routes):
         return
-    if request.endpoint not in open_routes:
+    try:
         verify_jwt_in_request()
+        user_id = int(get_jwt_identity())
+        g.current_user_id = user_id
+    except Exception as e:
+        return {"message": str(e)}, 401
 
 
 class Home(Resource):
@@ -85,10 +89,79 @@ class GetUser(Resource):
         return us.dump(user), 200
 
 
+class Notes(Resource):
+    def get_all(self):
+        notes = Note.query.filter_by(user_id=g.current_user_id).all()
+        return NoteSchema.dump(notes, many=True), 200
+
+    def get_by_id(self, note_id):
+        note = Note.query.filter_by(id=note_id, user_id=g.current_user_id).first()
+
+        if not note:
+            return {"message": "Note not found."}, 404
+
+        return NoteSchema.dump(note), 200
+
+    def post(self):
+        data = request.get_json()
+        try:
+            new_note = Note(
+                name=data.get("name"),
+                category=data.get("category"),
+                content=data.get("content"),
+                user_id=g.current_user_id,
+            )
+            db.session.add(new_note)
+            db.session.commit()
+            return NoteSchema.dump(new_note), 201
+        except ValueError as ve:
+            return {"message": str(ve)}, 400
+
+    def patch(self, note_id):
+        note = Note.query.filter_by(id=note_id, user_id=g.current_user_id).first()
+        if not note:
+            return {"message": "Note not found."}, 404
+
+        data = request.get_json()
+        try:
+            if "name" in data:
+                note.name = data["name"]
+            if "category" in data:
+                note.category = data["category"]
+            if "content" in data:
+                note.content = data["content"]
+
+            db.session.commit()
+            return NoteSchema.dump(note), 200
+        except ValueError as ve:
+            return {"message": str(ve)}, 400
+
+    def delete(self, note_id):
+        note = Note.query.filter_by(id=note_id, user_id=g.current_user_id).first()
+        if not note:
+            return {"message": "Note not found."}, 404
+        db.session.delete(note)
+        db.session.commit()
+        return {"message": "Note deleted successfully."}, 200
+
+
 api.add_resource(Home, "/", endpoint="home")
 api.add_resource(Signup, "/signup", endpoint="signup")
 api.add_resource(Login, "/login", endpoint="login")
 api.add_resource(GetUser, "/me", endpoint="me")
+api.add_resource(
+    Notes,
+    "/notes",
+    "/notes/<int:note_id>",
+    endpoint="notes",
+    resource_class_kwargs={
+        "get_all": Notes.get_all,
+        "get_by_id": Notes.get_by_id,
+        "post": Notes.post,
+        "patch": Notes.patch,
+        "delete": Notes.delete,
+    },
+)
 
 if __name__ == "__main__":
     with app.app_context():
