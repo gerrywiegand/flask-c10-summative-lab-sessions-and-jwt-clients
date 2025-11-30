@@ -3,7 +3,6 @@ from random import choice
 from app import app, db
 from config import *
 from faker import Faker
-from flask import Flask
 from models import *
 
 fake = Faker()
@@ -11,8 +10,15 @@ fake = Faker()
 
 def create_users():
     users = []
+    test_user = User(username="test", id=1)
+    test_user.password_hash = "Test1!"
+    db.session.add(test_user)
+    users.append(test_user)
     for _ in range(5):
         username = fake.user_name()
+        username = username[:15]
+        if len(username) < 3:
+            break
         password = fake.password(
             length=8, special_chars=True, digits=True, upper_case=True
         ) + choice("!@#$%^&*()-_=+[]{}|;:,.<>?/")

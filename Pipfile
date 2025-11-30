@@ -16,7 +16,7 @@ importlib-resources = "*"
 pytest = "*"
 flask-bcrypt = "*"
 flask-jwt-extended = "*"
-
+paginate = "*"
 
 [dev-packages]
 

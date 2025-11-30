@@ -6,9 +6,9 @@ from flask_jwt_extended import (
     get_jwt_identity,
     verify_jwt_in_request,
 )
+from flask_migrate import Migrate
 from flask_restful import Api, Resource
 from models import Note, User, note_schema, notes_schema, us
-from sqlalchemy import paginate
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -16,6 +16,7 @@ db.init_app(app)
 bcrypt.init_app(app)
 api = Api(app)
 jwt = JWTManager(app)
+migrate = Migrate(app, db)
 
 open_routes = {"signup", "login", "home"}
 
@@ -100,9 +101,13 @@ class logout(Resource):
 
 class Notes(Resource):
     def get(self, note_id=None):
-        if note_id is None:
-            notes = Note.query.filter_by(user_id=g.current_user_id).all()
-            return notes_schema.dump(notes), 200
+        # If a specific note_id is provided, return that single note
+        if note_id is not None:
+            note = Note.query.filter_by(
+                id=note_id, user_id=g.current_user_id
+            ).first_or_404()
+
+            return note_schema.dump(note), 200
 
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 10, type=int)
@@ -118,6 +123,7 @@ class Notes(Resource):
             "total": pagination.total,
             "pages": pagination.pages,
         }
+
         return response, 200
 
     def post(self):
